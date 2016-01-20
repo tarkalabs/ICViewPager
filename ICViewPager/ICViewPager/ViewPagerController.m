@@ -22,6 +22,10 @@
 #define kFixFormerTabsPositions 0.0
 #define kFixLatterTabsPositions 0.0
 #define kShouldAdjustForNavBar  1.0
+#define kShouldShowIndicator   1.0
+
+#define kTabContentView 100
+#define kTabSelectedContentView 101
 
 #define kIndicatorColor [UIColor colorWithRed:178.0/255.0 green:203.0/255.0 blue:57.0/255.0 alpha:0.75]
 #define kTabsViewBackgroundColor [UIColor colorWithRed:234.0/255.0 green:234.0/255.0 blue:234.0/255.0 alpha:0.75]
@@ -63,6 +67,7 @@
 @interface TabView : UIView
 @property (nonatomic, getter = isSelected) BOOL selected;
 @property (nonatomic) UIColor *indicatorColor;
+@property (nonatomic) BOOL shouldShowIndicator;
 @end
 
 @implementation TabView
@@ -78,6 +83,12 @@
     // Update view as state changed
     [self setNeedsDisplay];
 }
+
+- (void) setShouldShowIndicator:(BOOL)shouldShowIndicator {
+    _shouldShowIndicator = shouldShowIndicator;
+    [self setNeedsDisplay];
+}
+
 - (void)drawRect:(CGRect)rect {
     
     UIBezierPath *bezierPath;
@@ -99,7 +110,7 @@
     [bezierPath stroke];
     
     // Draw an indicator line if tab is selected
-    if (self.selected) {
+    if (self.selected && self.shouldShowIndicator) {
         
         bezierPath = [UIBezierPath bezierPath];
         
@@ -127,6 +138,9 @@
 @property NSMutableArray *tabs;
 @property NSMutableArray *contents;
 
+@property NSMutableArray *tabContentViews;
+@property NSMutableArray *selectedTabContentViews;
+
 // Options
 @property (nonatomic) NSNumber *tabHeight;
 @property (nonatomic) NSNumber *tabOffset;
@@ -138,6 +152,7 @@
 @property (nonatomic) NSNumber *fixLatterTabsPositions;
 
 @property (nonatomic) NSNumber *shouldAdjustForNavBar;
+@property (nonatomic) NSNumber *shouldShowIndicator;
 
 @property (nonatomic) NSUInteger tabCount;
 @property (nonatomic) NSUInteger activeTabIndex;
@@ -164,6 +179,7 @@
 @synthesize fixFormerTabsPositions = _fixFormerTabsPositions;
 @synthesize fixLatterTabsPositions = _fixLatterTabsPositions;
 @synthesize shouldAdjustForNavBar = _shouldAdjustForNavBar;
+@synthesize shouldShowIndicator = _shouldShowIndicator;
 
 #pragma mark - Init
 - (id)initWithCoder:(NSCoder *)aDecoder {
@@ -359,6 +375,7 @@
     
     [self.tabsView scrollRectToVisible:frame animated:YES];
 }
+
 - (void)setActiveContentIndex:(NSUInteger)activeContentIndex {
     
     // Get the desired viewController
@@ -565,6 +582,18 @@
     return _shouldAdjustForNavBar;
 }
 
+- (NSNumber *)shouldShowIndicator {
+    
+    if (!_shouldShowIndicator) {
+        CGFloat value = kShouldShowIndicator;
+        if ([self.delegate respondsToSelector:@selector(viewPager:valueForOption:withDefault:)])
+            value = [self.delegate viewPager:self valueForOption:ViewPagerOptionShouldShowIndicator withDefault:value];
+        self.shouldShowIndicator = [NSNumber numberWithFloat:value];
+        NSLog(@"shouldShowIndicator %@", self.shouldShowIndicator);
+    }
+    return _shouldShowIndicator;
+}
+
 
 #pragma mark - Public methods
 - (void)reloadData {
@@ -582,6 +611,7 @@
     _fixLatterTabsPositions = nil;
     
     _shouldAdjustForNavBar = nil;
+    _shouldShowIndicator = nil;
     
     // Empty all colors
     _indicatorColor = nil;
@@ -623,6 +653,13 @@
     else if ([self.delegate respondsToSelector:@selector(viewPager:didChangeTabToIndex:fromIndex:didSwipe:)]) {
         [self.delegate viewPager:self didChangeTabToIndex:self.activeTabIndex fromIndex:previousIndex didSwipe:didSwipe];
     }
+    
+    if ([self.delegate respondsToSelector:@selector(viewPager:viewForSelectedTabAtIndex:)]) {
+        [self selectTabContentView:self.activeTabIndex];
+        if (previousIndex != self.activeTabIndex) {
+             [self deSelectTabContentView:previousIndex];
+        }
+    }
 }
 
 - (void)setNeedsReloadOptions {
@@ -641,6 +678,7 @@
     self.fixLatterTabsPositions = [NSNumber numberWithFloat:[self.delegate viewPager:self valueForOption:ViewPagerOptionFixLatterTabsPositions withDefault:kFixLatterTabsPositions]];
     
     self.shouldAdjustForNavBar = [NSNumber numberWithBool:[self.delegate viewPager:self valueForOption:ViewPagerOptionShouldAdjustForNavBar withDefault:kShouldAdjustForNavBar]];
+    self.shouldShowIndicator = [NSNumber numberWithBool:[self.delegate viewPager:self valueForOption:ViewPagerOptionShouldShowIndicator withDefault:kShouldShowIndicator]];
     
     // We should update contentSize property of our tabsView, so we should recalculate it with the new values
     CGFloat contentSizeWidth = 0;
@@ -757,6 +795,8 @@
             return [[self centerCurrentTab] floatValue];
         case ViewPagerOptionShouldAdjustForNavBar:
             return [[self shouldAdjustForNavBar] floatValue];
+        case ViewPagerOptionShouldShowIndicator:
+            return [[self shouldShowIndicator] floatValue];
         default:
             return NAN;
     }
@@ -796,6 +836,8 @@
     self.animatingToTab = NO;
     self.defaultSetupDone = NO;
 }
+
+
 - (void)defaultSetup {
     
     // Empty tabs and contents
@@ -819,6 +861,15 @@
     self.contents = [NSMutableArray arrayWithCapacity:self.tabCount];
     for (NSUInteger i = 0; i < self.tabCount; i++) {
         [self.contents addObject:[NSNull null]];
+    }
+    
+    //Allocate array of selected & default view for tabs
+    self.tabContentViews = [NSMutableArray arrayWithCapacity:self.tabCount];
+    self.selectedTabContentViews = [NSMutableArray arrayWithCapacity:self.tabCount];
+    
+    for (NSUInteger i = 0; i < self.tabCount; i++) {
+        [self.tabContentViews addObject:[NSNull null]];
+        [self.selectedTabContentViews addObject:[NSNull null]];
     }
     
     // Add tabsView
@@ -914,6 +965,7 @@
 
         // Get view from dataSource
         UIView *tabViewContent = [self.dataSource viewPager:self viewForTabAtIndex:index];
+        tabViewContent.tag = kTabContentView;
         tabViewContent.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
         
         // Create TabView and subview the content
@@ -921,15 +973,44 @@
         [tabView addSubview:tabViewContent];
         [tabView setClipsToBounds:YES];
         [tabView setIndicatorColor:self.indicatorColor];
+        [tabView setShouldShowIndicator:[self.shouldShowIndicator boolValue]];
         
         tabViewContent.center = tabView.center;
         
         // Replace the null object with tabView
         [self.tabs replaceObjectAtIndex:index withObject:tabView];
+        
+        [self.tabContentViews replaceObjectAtIndex:index withObject:tabViewContent];
+        
+        if ([self.dataSource respondsToSelector:@selector(viewPager:viewForSelectedTabAtIndex:)]) {
+            UIView * selectedTabViewContent = [self.dataSource viewPager:self viewForSelectedTabAtIndex:index];
+            selectedTabViewContent.tag = kTabSelectedContentView;
+            [self.selectedTabContentViews replaceObjectAtIndex:index withObject:selectedTabViewContent];
+            [tabView addSubview:selectedTabViewContent];
+            selectedTabViewContent.center = tabView.center;
+            selectedTabViewContent.hidden = true;
+        }
     }
     
     return [self.tabs objectAtIndex:index];
 }
+
+- (void) selectTabContentView:(NSUInteger)index {
+    UIView * tabView = [self tabViewAtIndex:index];
+    UIView * tabContentView = [tabView viewWithTag:kTabContentView];
+    UIView * selectedTabContentView = [tabView viewWithTag:kTabSelectedContentView];
+    tabContentView.hidden = true;
+    selectedTabContentView.hidden = false;
+}
+
+- (void) deSelectTabContentView:(NSUInteger)index {
+    UIView * tabView = [self tabViewAtIndex:index];
+    UIView * tabContentView = [tabView viewWithTag:kTabContentView];
+    UIView * selectedTabContentView = [tabView viewWithTag:kTabSelectedContentView];
+    tabContentView.hidden = false;
+    selectedTabContentView.hidden = true;
+}
+
 - (NSUInteger)indexForTabView:(UIView *)tabView {
     
     return [self.tabs indexOfObject:tabView];

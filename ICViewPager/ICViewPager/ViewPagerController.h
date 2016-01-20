@@ -29,7 +29,8 @@ typedef NS_ENUM(NSUInteger, ViewPagerOption) {
     ViewPagerOptionCenterCurrentTab,
     ViewPagerOptionFixFormerTabsPositions,
     ViewPagerOptionFixLatterTabsPositions,
-    ViewPagerOptionShouldAdjustForNavBar
+    ViewPagerOptionShouldAdjustForNavBar,
+    ViewPagerOptionShouldShowIndicator
 };
 
 /**
@@ -155,6 +156,18 @@ typedef NS_ENUM(NSUInteger, ViewPagerComponent) {
  * @return A view which will be shown as content
  */
 - (UIView *)viewPager:(ViewPagerController *)viewPager contentViewForTabAtIndex:(NSUInteger)index;
+
+/**
+ * Asks dataSource to give a view to display as a tab item when selected
+ * It is suggested to return a view with a clearColor background.
+ * So that un/selected states can be clearly seen.
+ *
+ * @param viewPager The viewPager that's subject to
+ * @param index The index of the tab whose view is asked
+ *
+ * @return A view that will be shown as tab at the given index when selected
+ */
+- (UIView *)viewPager:(ViewPagerController *)viewPager viewForSelectedTabAtIndex:(NSUInteger)index;
 
 @end
 
