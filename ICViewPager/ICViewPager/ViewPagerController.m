@@ -21,6 +21,7 @@
 #define kCenterCurrentTab 0.0
 #define kFixFormerTabsPositions 0.0
 #define kFixLatterTabsPositions 0.0
+#define kShouldAdjustForNavBar  1.0
 
 #define kIndicatorColor [UIColor colorWithRed:178.0/255.0 green:203.0/255.0 blue:57.0/255.0 alpha:0.75]
 #define kTabsViewBackgroundColor [UIColor colorWithRed:234.0/255.0 green:234.0/255.0 blue:234.0/255.0 alpha:0.75]
@@ -136,6 +137,8 @@
 @property (nonatomic) NSNumber *fixFormerTabsPositions;
 @property (nonatomic) NSNumber *fixLatterTabsPositions;
 
+@property (nonatomic) NSNumber *shouldAdjustForNavBar;
+
 @property (nonatomic) NSUInteger tabCount;
 @property (nonatomic) NSUInteger activeTabIndex;
 @property (nonatomic) NSUInteger activeContentIndex;
@@ -160,6 +163,7 @@
 @synthesize centerCurrentTab = _centerCurrentTab;
 @synthesize fixFormerTabsPositions = _fixFormerTabsPositions;
 @synthesize fixLatterTabsPositions = _fixLatterTabsPositions;
+@synthesize shouldAdjustForNavBar = _shouldAdjustForNavBar;
 
 #pragma mark - Init
 - (id)initWithCoder:(NSCoder *)aDecoder {
@@ -203,7 +207,7 @@
 - (void)layoutSubviews {
     
     CGFloat topLayoutGuide = 0.0;
-    if (IOS_VERSION_7) {
+    if (IOS_VERSION_7 && [self.shouldAdjustForNavBar boolValue]) {
         topLayoutGuide = 20.0;
         if (self.navigationController && !self.navigationController.navigationBarHidden) {
             topLayoutGuide += self.navigationController.navigationBar.frame.size.height;
@@ -550,6 +554,18 @@
     return _contentViewBackgroundColor;
 }
 
+- (NSNumber *)shouldAdjustForNavBar {
+    
+    if (!_shouldAdjustForNavBar) {
+        CGFloat value = kShouldAdjustForNavBar;
+        if ([self.delegate respondsToSelector:@selector(viewPager:valueForOption:withDefault:)])
+            value = [self.delegate viewPager:self valueForOption:ViewPagerOptionShouldAdjustForNavBar withDefault:value];
+        self.shouldAdjustForNavBar = [NSNumber numberWithFloat:value];
+    }
+    return _shouldAdjustForNavBar;
+}
+
+
 #pragma mark - Public methods
 - (void)reloadData {
     
@@ -564,6 +580,8 @@
     _centerCurrentTab = nil;
     _fixFormerTabsPositions = nil;
     _fixLatterTabsPositions = nil;
+    
+    _shouldAdjustForNavBar = nil;
     
     // Empty all colors
     _indicatorColor = nil;
@@ -621,6 +639,8 @@
     self.centerCurrentTab = [NSNumber numberWithFloat:[self.delegate viewPager:self valueForOption:ViewPagerOptionCenterCurrentTab withDefault:kCenterCurrentTab]];
     self.fixFormerTabsPositions = [NSNumber numberWithFloat:[self.delegate viewPager:self valueForOption:ViewPagerOptionFixFormerTabsPositions withDefault:kFixFormerTabsPositions]];
     self.fixLatterTabsPositions = [NSNumber numberWithFloat:[self.delegate viewPager:self valueForOption:ViewPagerOptionFixLatterTabsPositions withDefault:kFixLatterTabsPositions]];
+    
+    self.shouldAdjustForNavBar = [NSNumber numberWithBool:[self.delegate viewPager:self valueForOption:ViewPagerOptionShouldAdjustForNavBar withDefault:kShouldAdjustForNavBar]];
     
     // We should update contentSize property of our tabsView, so we should recalculate it with the new values
     CGFloat contentSizeWidth = 0;
@@ -735,6 +755,8 @@
             return [[self startFromSecondTab] floatValue];
         case ViewPagerOptionCenterCurrentTab:
             return [[self centerCurrentTab] floatValue];
+        case ViewPagerOptionShouldAdjustForNavBar:
+            return [[self shouldAdjustForNavBar] floatValue];
         default:
             return NAN;
     }
