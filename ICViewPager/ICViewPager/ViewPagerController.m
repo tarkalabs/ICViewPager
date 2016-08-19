@@ -377,7 +377,7 @@
 }
 
 - (void)setActiveContentIndex:(NSUInteger)activeContentIndex {
-    
+    BOOL isTransitioning = NO;
     // Get the desired viewController
     UIViewController *viewController = [self viewControllerAtIndex:activeContentIndex];
     
@@ -392,19 +392,23 @@
     __weak ViewPagerController *weakSelf = self;
     
     if (activeContentIndex == self.activeContentIndex) {
-        
+      
+      dispatch_async(dispatch_get_main_queue(), ^{
         [self.pageViewController setViewControllers:@[viewController]
                                           direction:UIPageViewControllerNavigationDirectionForward
                                            animated:NO
                                          completion:^(BOOL completed) {
                                              weakSelf.animatingToTab = NO;
                                          }];
+      });
         
     } else if (!(activeContentIndex + 1 == self.activeContentIndex || activeContentIndex - 1 == self.activeContentIndex)) {
+      
+      dispatch_async(dispatch_get_main_queue(), ^{
         
         [self.pageViewController setViewControllers:@[viewController]
                                           direction:(activeContentIndex < self.activeContentIndex) ? UIPageViewControllerNavigationDirectionReverse : UIPageViewControllerNavigationDirectionForward
-                                           animated:YES
+                                           animated: NO
                                          completion:^(BOOL completed) {
                                              
                                              weakSelf.animatingToTab = NO;
@@ -417,15 +421,18 @@
                                                                                  completion:nil];
                                              });
                                          }];
+      });
         
     } else {
-        
+      
+      dispatch_async(dispatch_get_main_queue(), ^{
         [self.pageViewController setViewControllers:@[viewController]
                                           direction:(activeContentIndex < self.activeContentIndex) ? UIPageViewControllerNavigationDirectionReverse : UIPageViewControllerNavigationDirectionForward
-                                           animated:YES
+                                           animated: NO
                                          completion:^(BOOL completed) {
                                              weakSelf.animatingToTab = NO;
                                          }];
+      });
     }
     
     // Clean out of sight contents
