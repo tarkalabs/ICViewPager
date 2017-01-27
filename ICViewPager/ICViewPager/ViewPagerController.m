@@ -377,7 +377,6 @@
 }
 
 - (void)setActiveContentIndex:(NSUInteger)activeContentIndex {
-    BOOL isTransitioning = NO;
     // Get the desired viewController
     UIViewController *viewController = [self viewControllerAtIndex:activeContentIndex];
     
